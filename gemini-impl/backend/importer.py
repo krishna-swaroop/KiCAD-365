@@ -118,7 +118,6 @@ def list_projects():
                         git_name = git_name[:-4]
                     name = git_name
                 except Exception:
-                    # Fallback if git config is unreadable
                     pass
             
             # Strategy 2: If not a git repo (or failed), try .kicad_pro file
@@ -127,22 +126,25 @@ def list_projects():
                     name = item.stem
                     break
             
-            # UPDATED LOGIC: Find thumbnail in assets/renders/thumbnail-*.png
+            # UPDATED LOGIC: Find thumbnail in assets/renders/thumbnail-*.png or assets/*.png
             thumbnail_url = None
-            renders_dir = path / "assets" / "renders"
             
-            if renders_dir.is_dir():
-                png_files = list(renders_dir.glob("thumbnail-*.png"))
-                if not png_files:
-                     png_files = list(renders_dir.glob("*.png"))
+            # Check locations in order of preference
+            possible_locations = [
+                path / "assets" / "renders",
+                path / "assets"
+            ]
+            
+            for loc in possible_locations:
+                if not loc.is_dir():
+                    continue
                 
-                if not png_files:
-                    assets_dir = path / "assets"
-                    if assets_dir.is_dir():
-                        png_files = list(assets_dir.glob("*.png"))
-
+                # Look for thumbnail-*.png first, then any .png
+                png_files = list(loc.glob("thumbnail-*.png")) or list(loc.glob("*.png"))
+                
                 if png_files:
                     thumbnail_url = str(png_files[0].relative_to(path))
+                    break
             
             projects.append({
                 "id": project_id,

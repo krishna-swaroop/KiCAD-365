@@ -126,7 +126,6 @@ async def get_project_tree(project_id: str):
 
 @router.post("/projects/{project_id}/build")
 async def sync_and_build(project_id: str):
-    
     """Sync the repo and run the KiCAD jobset to regenerate outputs."""
     # 1. Sync
     importer.sync_repository(project_id)
@@ -134,85 +133,53 @@ async def sync_and_build(project_id: str):
     # 2. Build
     project_path = importer.PROJECTS_DIR / project_id
     jobset_path = project_path / "Outputs.kicad_jobset"
-    design_output_id = "28dab1d3-7bf2-4d8a-9723-bcdd14e1d814"
-    manufacturing_output_id = "9e5c254b-cb26-4a49-beea-fa7af8a62903"
-    render_id = "81c80ad4-e8b9-4c9a-8bed-df7864fdefc6 " 
     
     if not jobset_path.is_file():
         return {"message": "Synced successfully. No 'Outputs.kicad_jobset' found to build."}
         
+    # Check if kicad-cli exists
+    if shutil.which("kicad-cli") is None:
+            raise HTTPException(status_code=500, detail="kicad-cli not found on host server path.")
+
+    # Find the .kicad_pro file dynamically
+    pro_files = list(project_path.glob("*.kicad_pro"))
+    if not pro_files:
+        raise HTTPException(status_code=404, detail="No .kicad_pro file found in project root.")
+    
+    # Use the first found project file
+    pro_file_path = pro_files[0]
+
+    # Helper function to run a jobset output
+    def run_jobset_output(output_id: str, description: str):
+        cmd = [
+            "kicad-cli", "jobset", "run",
+            "-f", str(jobset_path),
+            "--output", output_id,
+            str(pro_file_path)
+        ]
+        
+        result = subprocess.run(
+            cmd, 
+            shell=False, 
+            cwd=str(project_path), 
+            capture_output=True, 
+            text=True
+        )
+        
+        if result.returncode != 0:
+            raise Exception(f"KiCAD CLI Error ({description}): {result.stderr}")
+
     try:
-        # Check if kicad-cli exists
-        if shutil.which("kicad-cli") is None:
-             raise HTTPException(status_code=500, detail="kicad-cli not found on host server path.")
+        # Define outputs to generate
+        outputs = [
+            ("28dab1d3-7bf2-4d8a-9723-bcdd14e1d814", "Design Outputs"),
+            ("9e5c254b-cb26-4a49-beea-fa7af8a62903", "Manufacturing Outputs"),
+            ("81c80ad4-e8b9-4c9a-8bed-df7864fdefc6 ", "Ray-Traced Renders")
+        ]
 
-        # Find the .kicad_pro file dynamically
-        pro_files = list(project_path.glob("*.kicad_pro"))
-        if not pro_files:
-            raise HTTPException(status_code=404, detail="No .kicad_pro file found in project root.")
-        
-        # Use the first found project file
-        pro_file_path = pro_files[0]
-
-        # Construct generic command
-        # Syntax: kicad-cli jobset run -f <jobset> --output <id> <project_file>
-
-        # Generate Design-Outputs
-        cmd = (
-            f"kicad-cli jobset run "
-            f"-f {shlex.quote(str(jobset_path))} "
-            f"--output {design_output_id} "
-            f"{shlex.quote(str(pro_file_path))}"
-        )
-        
-        # Run process
-        result = subprocess.run(
-            cmd, 
-            shell=True, 
-            cwd=str(project_path), 
-            capture_output=True, 
-            text=True
-        )
-        if result.returncode != 0:
-            raise Exception(f"KiCAD CLI Error: {result.stderr}")
-
-        # Generate Manufacturing-Outputs
-        cmd = (
-            f"kicad-cli jobset run "
-            f"-f {shlex.quote(str(jobset_path))} "
-            f"--output {manufacturing_output_id} "
-            f"{shlex.quote(str(pro_file_path))}"
-        )
-        
-        # Run process
-        result = subprocess.run(
-            cmd, 
-            shell=True, 
-            cwd=str(project_path), 
-            capture_output=True, 
-            text=True
-        )
-        if result.returncode != 0:
-            raise Exception(f"KiCAD CLI Error: {result.stderr}")
-        # Generate Ray-Traced Renders
-        cmd = (
-            f"kicad-cli jobset run "
-            f"-f {shlex.quote(str(jobset_path))} "
-            f"--output {render_id} "
-            f"{shlex.quote(str(pro_file_path))}"
-        )
-        
-        # Run process
-        result = subprocess.run(
-            cmd, 
-            shell=True, 
-            cwd=str(project_path), 
-            capture_output=True, 
-            text=True
-        )
-        
-        if result.returncode != 0:
-            raise Exception(f"KiCAD CLI Error: {result.stderr}")
+        # Run each output
+        for output_id, description in outputs:
+            run_jobset_output(output_id, description)
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Build failed: {str(e)}")
