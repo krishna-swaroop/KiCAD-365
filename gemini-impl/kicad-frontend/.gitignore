@@ -7,7 +7,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
+node_modules/
 dist
 dist-ssr
 *.local
@@ -22,3 +22,72 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# ========================
+
+# Python (Backend)
+
+# ========================
+
+# Byte-compiled / optimized / DLL files
+
+pycache/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+
+venv/
+env/
+.venv/
+.env
+
+# Distribution / packaging
+
+build/
+dist/
+*.egg-info/
+
+# Jupyter Notebooks (if used)
+
+.ipynb_checkpoints
+
+# ========================
+
+# React / Node (Frontend)
+
+# ========================
+
+# Dependencies
+
+
+/.pnp
+.pnp.js
+
+# Production Build
+
+/build
+/dist
+
+# Testing
+
+coverage/
+
+# Environment variables
+
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ========================
+
+# OS & IDE System Files
+
+# ========================
+
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

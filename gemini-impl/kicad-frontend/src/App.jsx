@@ -23,7 +23,10 @@ import {
   FileText,
   FileCode,
   ChevronRight,
-  ChevronDown
+  ChevronDown,
+  Layers,
+  Box,
+  Trash2
 } from 'lucide-react';
 
 const API_BASE = "http://192.168.1.55:8000/api";
@@ -35,7 +38,8 @@ const Button = ({ children, onClick, disabled, className = "", variant = "primar
   const variants = {
     primary: "bg-black text-white border-black hover:bg-white hover:text-black active:translate-y-0.5",
     secondary: "bg-white text-black border-black hover:bg-black hover:text-white active:translate-y-0.5",
-    ghost: "border-transparent hover:bg-gray-100 text-gray-600"
+    ghost: "border-transparent hover:bg-gray-100 text-gray-600",
+    danger: "bg-white text-red-600 border-red-600 hover:bg-red-600 hover:text-white active:translate-y-0.5"
   };
   return (
     <button onClick={onClick} disabled={disabled} className={`${baseStyle} ${variants[variant]} ${className}`}>
@@ -85,7 +89,19 @@ const Toast = ({ message, type, onClose }) => {
   );
 };
 
-// --- Viewers ---
+// --- Helpers ---
+
+const getIconForName = (name) => {
+  const n = name.toLowerCase();
+  if (n.includes('design') || n.includes('schematic')) return Cpu;
+  if (n.includes('manufact') || n.includes('gerber') || n.includes('fab')) return Hammer;
+  if (n.includes('doc') || n.includes('read') || n.includes('spec')) return BookOpen;
+  if (n.includes('sim') || n.includes('test')) return Activity;
+  if (n.includes('firmware') || n.includes('code') || n.includes('sw')) return Terminal;
+  if (n.includes('mech') || n.includes('3d')) return Box;
+  if (n.includes('layer')) return Layers;
+  return Folder;
+};
 
 const resolveRelativePath = (currentFile, relativePath) => {
   if (!relativePath || relativePath.startsWith('/') || relativePath.startsWith('http')) {
@@ -111,6 +127,8 @@ const resolveRelativePath = (currentFile, relativePath) => {
   }
   return validStack.join('/');
 };
+
+// --- Viewers ---
 
 const MarkdownViewer = ({ content, baseFileUrl, currentFilePath }) => {
   return (
@@ -318,7 +336,6 @@ const FileTreeNode = ({ item, onPreview, projectId }) => {
   return (
     <li className="select-none">
       <div
-        // Added 'group' class here so group-hover works on children
         className={`group flex items-center justify-between p-2 hover:bg-gray-100 transition-colors cursor-pointer border-b border-gray-50 ${isDirectory ? 'font-bold' : ''}`}
         onClick={toggleOpen}
       >
@@ -339,7 +356,6 @@ const FileTreeNode = ({ item, onPreview, projectId }) => {
         </div>
 
         {!isDirectory && (
-          // These buttons now appear on hover because parent has 'group' class
           <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
             {isPreviewable && (
               <button
@@ -385,7 +401,9 @@ export default function App() {
   const [newRepoUrl, setNewRepoUrl] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [projectFiles, setProjectFiles] = useState({});
-  const [activeTab, setActiveTab] = useState('design_outputs');
+  // Initialize with null, will be set dynamically
+  const [activeTab, setActiveTab] = useState(null);
+  const [tabs, setTabs] = useState([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [previewFile, setPreviewFile] = useState(null);
 
@@ -422,15 +440,51 @@ export default function App() {
     }
   };
 
+  const handleDeleteProject = async (project) => {
+    if (!confirm(`Are you sure you want to delete the project "${project.name}"? This cannot be undone.`)) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/projects/${project.id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.detail || "Failed to delete project");
+      }
+      setToast({ type: 'success', message: 'Project Deleted Successfully' });
+      await fetchProjects();
+    } catch (err) {
+      setToast({ type: 'error', message: err.message });
+    }
+  };
+
   const loadProjectDetails = async (project) => {
     setSelectedProject(project);
     setView('project');
     setProjectFiles({});
+    setTabs([]);
     try {
       const res = await fetch(`${API_BASE}/projects/${project.id}/tree`);
       if (!res.ok) throw new Error("Failed to load project files");
       const data = await res.json();
+
+      // Define the specific folders to display in the desired order
+      const orderedFolders = ['docs', 'Design-Outputs', 'Manufacturing-Outputs', 'simulation'];
+
+      // Generate tabs based on the ordered list, only including those present in the data
+      const dynamicTabs = orderedFolders
+        .filter(key => data[key])
+        .map(key => ({
+          id: key,
+          label: key.replace(/_/g, ' ').replace(/-/g, ' '), // "Design-Outputs" -> "Design Outputs"
+          icon: getIconForName(key)
+        }));
+
+      setTabs(dynamicTabs);
       setProjectFiles(data);
+
+      // Default to the first tab if available
+      if (dynamicTabs.length > 0) {
+        setActiveTab(dynamicTabs[0].id);
+      }
     } catch (err) {
       setToast({ type: 'error', message: "Could not load file structure" });
     }
@@ -477,13 +531,6 @@ export default function App() {
 
   const getThumbnailSrc = (project) => project.thumbnail_url ? `${API_BASE}/projects/${project.id}/file/${project.thumbnail_url}` : null;
 
-  const tabs = [
-    { id: 'design_outputs', label: 'Design Outputs', icon: Cpu },
-    { id: 'manufacturing_outputs', label: 'Manufacturing', icon: Hammer },
-    { id: 'docs', label: 'Documentation', icon: BookOpen },
-    { id: 'simulations', label: 'Simulations', icon: Activity },
-  ];
-
   if (view === 'project' && selectedProject) {
     return (
       <div className="min-h-screen bg-[#F4F4F4] text-black flex flex-col font-mono selection:bg-black selection:text-white">
@@ -512,35 +559,61 @@ export default function App() {
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
-              // Calculate total items recursively or just show '...' or fetch count from backend
-              // For now, simplistic count is removed or needs recursive calculation
+              // Only show count if we have items loaded
+              const hasItems = projectFiles[tab.id] && projectFiles[tab.id].length > 0;
+
               return (
-                <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center justify-between p-5 text-xs font-bold uppercase border-b border-gray-100 transition-all ${isActive ? 'bg-black text-white' : 'hover:bg-gray-100 text-black'}`}>
-                  <div className="flex items-center gap-3"><Icon size={16} />{tab.label}</div>
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center justify-between p-5 text-xs font-bold uppercase border-b border-gray-100 transition-all
+                    ${isActive ? 'bg-black text-white' : 'hover:bg-gray-100 text-black'}
+                  `}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon size={16} />
+                    {tab.label}
+                  </div>
+                  {/* Optional: Show indicator if items present */}
+                  <span className={`w-2 h-2 rounded-full ${hasItems ? 'bg-green-500' : 'bg-gray-300'}`} />
                 </button>
               );
             })}
           </nav>
+
           <main className="flex-1 p-8 overflow-y-auto bg-[#F4F4F4]">
             <div className="max-w-6xl mx-auto">
-              <SectionHeader title={tabs.find(t => t.id === activeTab)?.label} icon={Folder} rightElement={<span className="text-[10px] text-gray-500 font-mono">/{activeTab.replace('_', '-')}</span>} />
-              <div className="bg-white border border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)]">
-                {!projectFiles[activeTab] || projectFiles[activeTab].length === 0 ? (
-                  <div className="p-16 text-center text-gray-400 flex flex-col items-center">
-                    <Folder size={48} className="mb-4 opacity-20" strokeWidth={1} />
-                    <p className="text-xs uppercase tracking-widest font-bold">Directory Empty</p>
-                    <p className="text-[10px] mt-2 max-w-xs text-center">Run "Sync & Build" to generate outputs if this is an output directory.</p>
+              {activeTab && (
+                <>
+                  <SectionHeader
+                    title={tabs.find(t => t.id === activeTab)?.label || activeTab}
+                    icon={Folder}
+                    rightElement={
+                      <span className="text-[10px] text-gray-500 font-mono">
+                        /{activeTab}
+                      </span>
+                    }
+                  />
+
+                  <div className="bg-white border border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)]">
+                    {!projectFiles[activeTab] || projectFiles[activeTab].length === 0 ? (
+                      <div className="p-16 text-center text-gray-400 flex flex-col items-center">
+                        <Folder size={48} className="mb-4 opacity-20" strokeWidth={1} />
+                        <p className="text-xs uppercase tracking-widest font-bold">Directory Empty</p>
+                        <p className="text-[10px] mt-2 max-w-xs text-center">Run "Sync & Build" to generate outputs if this is an output directory.</p>
+                      </div>
+                    ) : (
+                      <div className="p-4">
+                        <FileTree
+                          items={projectFiles[activeTab]}
+                          onPreview={handlePreview}
+                          projectId={selectedProject.id}
+                        />
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <div className="p-4">
-                    <FileTree
-                      items={projectFiles[activeTab]}
-                      onPreview={handlePreview}
-                      projectId={selectedProject.id}
-                    />
-                  </div>
-                )}
-              </div>
+                </>
+              )}
             </div>
           </main>
         </div>
@@ -561,46 +634,146 @@ export default function App() {
       <div className="border-b border-black bg-white">
         <div className="max-w-7xl mx-auto px-6 py-16">
           <div className="flex items-start justify-between">
-            <div><h1 className="text-5xl font-bold uppercase tracking-tighter mb-4">KiCAD Registry</h1><p className="text-xs text-gray-500 font-mono tracking-[0.2em] uppercase border-l-2 border-black pl-3 ml-1">Centralized Design & Fabrication Database</p></div>
-            <div className="hidden md:block text-right"><div className="text-[10px] font-bold uppercase tracking-widest mb-1">System Status</div><div className="flex items-center justify-end gap-2 text-green-600"><div className="w-2 h-2 bg-green-600 rounded-full animate-pulse" /><span className="text-xs font-bold">ONLINE</span></div></div>
+            <div>
+              <div className="flex items-center gap-4 mb-4">
+                {/* Replaced Header with Icon from assets */}
+                <h1 className="text-5xl font-bold uppercase tracking-tighter">KiCAD-365</h1>
+              </div>
+              <p className="text-xs text-gray-500 font-mono tracking-[0.2em] uppercase border-l-2 border-black pl-3 ml-1">
+                KiCAD Centralized Design & Fabrication Output Database
+              </p>
+            </div>
+            {/* <div className="hidden md:block text-right">
+              <div className="text-[10px] font-bold uppercase tracking-widest mb-1">System Status</div>
+              <div className="flex items-center justify-end gap-2 text-green-600">
+                <div className="w-2 h-2 bg-green-600 rounded-full animate-pulse" />
+                <span className="text-xs font-bold">ONLINE</span>
+              </div>
+            </div> */}
+            {/* <img
+              src="./assets/KiCAD-logo.png"
+              alt="KiCAD-365"
+              className="w-14 h-14 object-contain"
+            /> */}
           </div>
         </div>
       </div>
+
       <div className="max-w-7xl mx-auto px-6 py-12">
+
+        {/* Import Interface */}
         <div className="mb-16">
           <SectionHeader title="Ingest New Repository" icon={Plus} />
           <div className="bg-white border border-black p-1 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
             <div className="flex flex-col md:flex-row gap-4 p-6">
-              <div className="flex-1"><label className="block text-[10px] font-bold uppercase tracking-widest mb-2 text-gray-500">GitHub Repository URL</label><Input value={newRepoUrl} onChange={(e) => setNewRepoUrl(e.target.value)} placeholder="https://github.com/organization/project-repo" disabled={isAdding} /></div>
-              <div className="flex items-end"><Button onClick={handleAddProject} disabled={isAdding || !newRepoUrl} className="h-[46px] w-full md:w-auto justify-center">{isAdding ? <Loader2 className="animate-spin" size={16} /> : <Github size={16} />}{isAdding ? "CLONING REPO..." : "INITIATE CLONE"}</Button></div>
+              <div className="flex-1">
+                <label className="block text-[10px] font-bold uppercase tracking-widest mb-2 text-gray-500">
+                  GitHub Repository URL
+                </label>
+                <Input
+                  value={newRepoUrl}
+                  onChange={(e) => setNewRepoUrl(e.target.value)}
+                  placeholder="https://github.com/organization/project-repo"
+                  disabled={isAdding}
+                />
+              </div>
+              <div className="flex items-end">
+                <Button onClick={handleAddProject} disabled={isAdding || !newRepoUrl} className="h-[46px] w-full md:w-auto justify-center">
+                  {isAdding ? <Loader2 className="animate-spin" size={16} /> : <Github size={16} />}
+                  {isAdding ? "CLONING REPO..." : "INITIATE CLONE"}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Project Grid */}
         <SectionHeader title="Active Projects" icon={Cpu} />
+
         {loading ? (
-          <div className="flex justify-center p-24 border border-dashed border-gray-300"><Loader2 className="animate-spin text-black" size={32} /></div>
+          <div className="flex justify-center p-24 border border-dashed border-gray-300">
+            <Loader2 className="animate-spin text-black" size={32} />
+          </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {projects.map((project) => (
-              <div key={project.id} onClick={() => loadProjectDetails(project)} className="group bg-white border border-black cursor-pointer hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all duration-200 flex flex-col h-full">
+              <div
+                key={project.id}
+                onClick={() => loadProjectDetails(project)}
+                className="group bg-white border border-black cursor-pointer hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all duration-200 flex flex-col h-full relative"
+              >
+                {/* Thumbnail Frame */}
                 <div className="aspect-[4/3] bg-gray-100 border-b border-black relative overflow-hidden flex items-center justify-center">
+                  {/* Grid Pattern Overlay */}
                   <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-multiply pointer-events-none"></div>
+
                   {project.thumbnail_url ? (
-                    <img src={getThumbnailSrc(project)} alt={project.name} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
+                    <img
+                      src={getThumbnailSrc(project)}
+                      alt={project.name}
+                      className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'flex';
+                      }}
+                    />
                   ) : null}
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-300 bg-white" style={{ display: project.thumbnail_url ? 'none' : 'flex' }}><Activity size={48} strokeWidth={1} /><span className="text-[10px] uppercase tracking-widest mt-2 text-gray-400">No Preview</span></div>
+
+                  {/* Fallback Icon */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-300 bg-white" style={{ display: project.thumbnail_url ? 'none' : 'flex' }}>
+                    <Activity size={48} strokeWidth={1} />
+                    <span className="text-[10px] uppercase tracking-widest mt-2 text-gray-400">No Preview</span>
+                  </div>
                 </div>
+
+                {/* Card Data */}
                 <div className="p-5 flex flex-col flex-1 justify-between">
-                  <div><h3 className="font-bold text-lg leading-tight mb-2 truncate uppercase">{project.name}</h3><div className="flex items-center gap-2 mb-4"><span className="text-[10px] font-bold text-white bg-black px-1.5 py-0.5">GIT</span><span className="text-[10px] font-mono text-gray-500 truncate" title={project.id}>{project.id.substring(0, 8)}...</span></div></div>
-                  <div className="pt-4 border-t border-gray-100 flex justify-between items-center"><span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 group-hover:text-black transition-colors">Open Project &rarr;</span>{project.sync_status === 'error' && (<AlertCircle size={14} className="text-red-500" />)}</div>
+                  <div>
+                    <h3 className="font-bold text-lg leading-tight mb-2 truncate uppercase">{project.name}</h3>
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="text-[10px] font-bold text-white bg-black px-1.5 py-0.5">GIT</span>
+                      <span className="text-[10px] font-mono text-gray-500 truncate" title={project.id}>
+                        {project.id.substring(0, 8)}...
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-gray-100 flex justify-between items-center">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 group-hover:text-black transition-colors">
+                      Open Project &rarr;
+                    </span>
+                    {project.sync_status === 'error' && (
+                      <AlertCircle size={14} className="text-red-500" />
+                    )}
+                  </div>
                 </div>
+
+                {/* Delete Button (Absolute Positioned) */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent opening the project
+                    handleDeleteProject(project);
+                  }}
+                  className="absolute top-2 right-2 p-2 bg-white border border-black text-gray-400 hover:text-red-600 hover:border-red-600 transition-colors z-10 shadow-sm"
+                  title="Delete Project"
+                >
+                  <Trash2 size={14} />
+                </button>
               </div>
             ))}
           </div>
         )}
       </div>
+
       {toast && <Toast {...toast} onClose={() => setToast(null)} />}
-      <footer className="mt-24 border-t border-black bg-white py-12 text-center"><p className="text-[10px] uppercase tracking-[0.3em] text-gray-400 font-bold">KiCAD Database Interface • V1.0.0 • Localhost</p></footer>
+
+      {/* Footer */}
+      <footer className="mt-24 border-t border-black bg-white py-12 text-center">
+        <p className="text-[10px] uppercase tracking-[0.3em] text-gray-400 font-bold">
+          KiCAD Database Interface • V1.0.0 • Localhost
+        </p>
+      </footer>
     </div>
   );
 }
