@@ -2,12 +2,20 @@
 
 A web-based platform for viewing, managing, and collaborating on KiCAD hardware projects.
 
+![Home Page](./assets/HomePage.png)
 ## Features
-- **Project Management**: View and manage KiCAD projects.
+- **Project Management**: View and manage KiCAD projects
+- **KiCanvas Integration**: View KiCAD Schematics and PCBs in the browser
+
+![SchematicView](./assets/SchematicView.png)
+![PCBView](./assets/PCBView.png)
 - **Interactive BoM**: Integrated Interactive HTML BoM viewer.
 - **File Preview**: Preview Markdown, CSV, and PDF files.
+
+![DocumentView](./assets/DocumentView.png)
 - **3D Viewer**: (Coming Soon) View 3D models of PCBs.
-- **Git Integration**: Sync projects directly from Git repositories.
+- **Git Integration**: Sync projects directly from Git repositories. Dedicated Sync & Build Button to generate the latest outputs
+
 
 ## Getting Started
 
