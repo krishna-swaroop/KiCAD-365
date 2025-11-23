@@ -88,9 +88,7 @@ const PreviewModal = ({ file, onClose }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 md:p-8">
-      {/* Change the next line to change the size of the PreviewModal */}
-      <div className="bg-white w-full max-w-full h-full flex flex-col border border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] animate-slide-in">
-        {/* max-w-full or max-w-[95vw] or something else. Same with h- */}
+      <div className="bg-white w-full max-w-[95vw] h-[95vh] flex flex-col border border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] animate-slide-in">
         {/* Modal Header */}
         <div className="flex justify-between items-center p-4 border-b border-black bg-gray-50">
           <div className="flex items-center gap-3">
@@ -131,31 +129,85 @@ const PreviewModal = ({ file, onClose }) => {
   );
 };
 
+// --- CSV Parsing Logic ---
+// This function properly handles quoted CSV fields
+const parseCSV = (text) => {
+  const rows = [];
+  let currentRow = [];
+  let currentCell = '';
+  let inQuotes = false;
+
+  // Normalize line endings
+  const cleanText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+  for (let i = 0; i < cleanText.length; i++) {
+    const char = cleanText[i];
+    const nextChar = cleanText[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        // Double quote inside quotes acts as an escape for a quote
+        currentCell += '"';
+        i++; // Skip the next quote
+      } else {
+        // Toggle quote state
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      // Cell separator
+      currentRow.push(currentCell);
+      currentCell = '';
+    } else if (char === '\n' && !inQuotes) {
+      // Row separator
+      currentRow.push(currentCell);
+      if (currentRow.length > 1 || (currentRow.length === 1 && currentRow[0] !== '')) {
+        rows.push(currentRow);
+      }
+      currentRow = [];
+      currentCell = '';
+    } else {
+      // Normal character
+      currentCell += char;
+    }
+  }
+
+  // Push the final row if exists
+  if (currentRow.length > 0) {
+    currentRow.push(currentCell);
+    rows.push(currentRow);
+  }
+
+  return rows;
+};
+
 const CsvViewer = ({ content }) => {
   if (!content) return <div>Loading...</div>;
 
-  const rows = content.trim().split('\n').map(row => row.split(','));
+  const rows = parseCSV(content);
+  if (rows.length === 0) return <div>Empty CSV</div>;
+
   const headers = rows[0];
   const data = rows.slice(1);
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-left border-collapse text-xs font-mono">
+      <table className="w-full text-left border-collapse text-xs font-mono bg-white">
         <thead>
           <tr>
             {headers.map((h, i) => (
-              <th key={i} className="border border-black bg-black text-white p-2 font-bold uppercase whitespace-nowrap">
-                {h.replace(/"/g, '')}
+              <th key={i} className="border border-black bg-black text-white p-3 font-bold uppercase whitespace-nowrap sticky top-0">
+                {h}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
           {data.map((row, i) => (
-            <tr key={i} className="hover:bg-gray-50">
+            <tr key={i} className="hover:bg-gray-100 transition-colors">
               {row.map((cell, j) => (
-                <td key={j} className="border border-gray-300 p-2 truncate max-w-[200px]" title={cell}>
-                  {cell.replace(/"/g, '')}
+                <td key={j} className="border border-gray-300 p-2 min-w-[100px] max-w-[300px] break-words align-top">
+                  {/* If the cell contains many commas (like Reference list), add spacing for readability */}
+                  {cell.length > 50 && cell.includes(',') ? cell.split(',').join(', ') : cell}
                 </td>
               ))}
             </tr>
