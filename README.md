@@ -64,4 +64,4 @@ Contributions are welcome! Please see the [Contributing Guidelines](CONTRIBUTING
 
 > This has been mostly vibe-coded over a sleepless weekend. Expect some difficulties setting things up
 
-**Huge Shoutout to ![@theacodes](https://github.com/theacodes) for their work on the ![KiCanvas Project](https://github.com/theacodes/kicanvas)**
+**Huge Shoutout to [@theacodes](https://github.com/theacodes) for their work on the [KiCanvas Project](https://github.com/theacodes/kicanvas)**
