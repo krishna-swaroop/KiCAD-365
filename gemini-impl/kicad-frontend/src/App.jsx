@@ -7,6 +7,7 @@ import {
   RefreshCw,
   ArrowLeft,
   Download,
+  Eye,
   Cpu,
   Hammer,
   BookOpen,
@@ -14,11 +15,15 @@ import {
   AlertCircle,
   CheckCircle2,
   Loader2,
-  Terminal
+  Terminal,
+  X,
+  Table as TableIcon,
+  FileText
 } from 'lucide-react';
 
-// const API_BASE = "http://127.0.0.1:8000/api";
 const API_BASE = "http://192.168.1.55:8000/api";
+
+// --- UI Components ---
 
 const Button = ({ children, onClick, disabled, className = "", variant = "primary" }) => {
   const baseStyle = "px-4 py-3 text-xs font-bold uppercase tracking-wider border transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-mono select-none sharp-corners";
@@ -75,7 +80,96 @@ const Toast = ({ message, type, onClose }) => {
   );
 };
 
+// --- Preview Modal Component ---
+
+const PreviewModal = ({ file, onClose }) => {
+  const isPdf = file.name.toLowerCase().endsWith('.pdf');
+  const isCsv = file.name.toLowerCase().endsWith('.csv');
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 md:p-8">
+      {/* Change the next line to change the size of the PreviewModal */}
+      <div className="bg-white w-full max-w-full h-full flex flex-col border border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] animate-slide-in">
+        {/* max-w-full or max-w-[95vw] or something else. Same with h- */}
+        {/* Modal Header */}
+        <div className="flex justify-between items-center p-4 border-b border-black bg-gray-50">
+          <div className="flex items-center gap-3">
+            {isPdf ? <FileText size={20} /> : <TableIcon size={20} />}
+            <div>
+              <h3 className="text-sm font-bold uppercase font-mono">{file.name.split('/').pop()}</h3>
+              <p className="text-[10px] text-gray-500 font-mono tracking-widest">{file.name}</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <a href={file.url} download>
+              <Button variant="secondary" className="!py-1.5 !px-3">Download</Button>
+            </a>
+            <Button onClick={onClose} variant="primary" className="!py-1.5 !px-3"><X size={16} /></Button>
+          </div>
+        </div>
+
+        {/* Modal Content */}
+        <div className="flex-1 overflow-auto bg-gray-100 p-4">
+          {isPdf && (
+            <iframe src={file.url} className="w-full h-full border border-black" title="PDF Viewer" />
+          )}
+
+          {isCsv && (
+            <div className="bg-white border border-black p-4 min-h-full">
+              <CsvViewer content={file.content} />
+            </div>
+          )}
+
+          {!isPdf && !isCsv && (
+            <div className="flex items-center justify-center h-full text-gray-400">
+              Preview not available for this file type.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const CsvViewer = ({ content }) => {
+  if (!content) return <div>Loading...</div>;
+
+  const rows = content.trim().split('\n').map(row => row.split(','));
+  const headers = rows[0];
+  const data = rows.slice(1);
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-left border-collapse text-xs font-mono">
+        <thead>
+          <tr>
+            {headers.map((h, i) => (
+              <th key={i} className="border border-black bg-black text-white p-2 font-bold uppercase whitespace-nowrap">
+                {h.replace(/"/g, '')}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row, i) => (
+            <tr key={i} className="hover:bg-gray-50">
+              {row.map((cell, j) => (
+                <td key={j} className="border border-gray-300 p-2 truncate max-w-[200px]" title={cell}>
+                  {cell.replace(/"/g, '')}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+// --- Main Application ---
+
 export default function App() {
+  // State
   const [view, setView] = useState('home');
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null);
@@ -87,6 +181,10 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('design_outputs');
   const [isSyncing, setIsSyncing] = useState(false);
 
+  // Preview State
+  const [previewFile, setPreviewFile] = useState(null); // { name, url, content }
+
+  // API Call: Fetch Projects
   const fetchProjects = useCallback(async () => {
     try {
       setLoading(true);
@@ -101,6 +199,7 @@ export default function App() {
     }
   }, []);
 
+  // API Call: Add Project
   const handleAddProject = async () => {
     if (!newRepoUrl) return;
     setIsAdding(true);
@@ -120,6 +219,7 @@ export default function App() {
     }
   };
 
+  // API Call: Load Project Details
   const loadProjectDetails = async (project) => {
     setSelectedProject(project);
     setView('project');
@@ -134,6 +234,7 @@ export default function App() {
     }
   };
 
+  // API Call: Sync & Build
   const handleSyncAndBuild = async () => {
     if (!selectedProject) return;
     setIsSyncing(true);
@@ -152,10 +253,27 @@ export default function App() {
     }
   };
 
+  // Logic: Handle Preview Request
+  const handlePreview = async (filePath) => {
+    const url = `${API_BASE}/projects/${selectedProject.id}/file/${filePath}`;
+    const isCsv = filePath.toLowerCase().endsWith('.csv');
+
+    if (isCsv) {
+      try {
+        const res = await fetch(url);
+        const text = await res.text();
+        setPreviewFile({ name: filePath, url, content: text });
+      } catch (e) {
+        setToast({ type: 'error', message: "Failed to load CSV content" });
+      }
+    } else {
+      setPreviewFile({ name: filePath, url, content: null });
+    }
+  };
+
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
 
   const getThumbnailSrc = (project) => project.thumbnail_url ? `${API_BASE}/projects/${project.id}/file/${project.thumbnail_url}` : null;
-  const getFileUrl = (path) => selectedProject ? `${API_BASE}/projects/${selectedProject.id}/file/${path}` : '#';
 
   const tabs = [
     { id: 'design_outputs', label: 'Design Outputs', icon: Cpu },
@@ -164,6 +282,7 @@ export default function App() {
     { id: 'simulations', label: 'Simulations', icon: Activity },
   ];
 
+  // --- View: Project Detail ---
   if (view === 'project' && selectedProject) {
     return (
       <div className="min-h-screen bg-[#F4F4F4] text-black flex flex-col font-mono selection:bg-black selection:text-white">
@@ -213,28 +332,45 @@ export default function App() {
                   </div>
                 ) : (
                   <ul className="divide-y divide-gray-100">
-                    {projectFiles[activeTab].map((filePath, idx) => (
-                      <li key={idx} className="group flex items-center justify-between p-4 hover:bg-gray-50 transition-colors">
-                        <div className="flex items-center gap-4 overflow-hidden">
-                          <div className="w-8 h-8 flex items-center justify-center bg-gray-100 border border-gray-200 text-gray-500"><File size={14} /></div>
-                          <div className="flex flex-col"><span className="text-sm font-bold truncate">{filePath.split('/').pop()}</span><span className="text-[10px] text-gray-400 font-mono tracking-tight hidden sm:inline-block">{filePath}</span></div>
-                        </div>
-                        <a href={getFileUrl(filePath)} target="_blank" rel="noopener noreferrer" className="opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100">
-                          <Button variant="secondary" className="!py-1.5 !px-3 !text-[10px]"><Download size={12} className="mr-1" /> GET FILE</Button>
-                        </a>
-                      </li>
-                    ))}
+                    {projectFiles[activeTab].map((filePath, idx) => {
+                      const isPreviewable = filePath.endsWith('.pdf') || filePath.endsWith('.csv');
+                      const downloadUrl = `${API_BASE}/projects/${selectedProject.id}/file/${filePath}`;
+                      return (
+                        <li key={idx} className="group flex items-center justify-between p-4 hover:bg-gray-50 transition-colors">
+                          <div className="flex items-center gap-4 overflow-hidden">
+                            <div className="w-8 h-8 flex items-center justify-center bg-gray-100 border border-gray-200 text-gray-500"><File size={14} /></div>
+                            <div className="flex flex-col"><span className="text-sm font-bold truncate">{filePath.split('/').pop()}</span><span className="text-[10px] text-gray-400 font-mono tracking-tight hidden sm:inline-block">{filePath}</span></div>
+                          </div>
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                            {isPreviewable && (
+                              <Button onClick={() => handlePreview(filePath)} variant="secondary" className="!py-1.5 !px-3 !text-[10px]">
+                                <Eye size={12} className="mr-1" /> VIEW
+                              </Button>
+                            )}
+                            <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
+                              <Button variant="secondary" className="!py-1.5 !px-3 !text-[10px]">
+                                <Download size={12} className="mr-1" /> DL
+                              </Button>
+                            </a>
+                          </div>
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </div>
             </div>
           </main>
         </div>
+
+        {/* Modals & Toasts */}
+        {previewFile && <PreviewModal file={previewFile} onClose={() => setPreviewFile(null)} />}
         {toast && <Toast {...toast} onClose={() => setToast(null)} />}
       </div>
     );
   }
 
+  // --- View: Home / Gallery ---
   return (
     <div className="min-h-screen bg-[#F4F4F4] text-black font-mono selection:bg-black selection:text-white">
       <div className="border-b border-black bg-white">
