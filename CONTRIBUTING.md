@@ -24,6 +24,8 @@ This effort has majorly been vibe-coded by me over a sleepless weekend to solve 
 
 The low-hanging fruit has been addressed. The next steps are to add a functioning 3D viewer using WebGL. As a novice to world of Web Development, it will be baby steps from my end. Any and all help will be appreciated.
 
+- Adding Dark Mode to this page
+
 After the 3D viewer is in place, the next big thing to tackle is the ability to add comments to the various files in the project. This will be a significant undertaking as KiCanvas explicitly states that they do NOT plan on supporting any form of editing of the files in the browser.
 
 I am sure a lot of people would want Authentication Features to be added to the platform. My intention with this project was to provide a platform that small teams could host on their local workstations. This will be on the backburner from my end (or atleast my tokens won't be going towards this in the near future :)) )
