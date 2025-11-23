@@ -362,21 +362,18 @@ Import and use `PreviewModal` as a template, or create similar:
 
 ### Short Term
 - Add React 18 support for Three.js 3D viewer
-- Implement KiCanvas for Schematic/PCB panes
+- ~~Implement KiCanvas for Schematic/PCB panes~~
 - Add file upload functionality
 
 ### Long Term
-- Add Redux/Zustand for state management
 - Implement drag & resize panes
 - Add keyboard shortcuts
-- Create component library (Storybook)
 
 ---
 
 ## Getting Help
 
+- Go to your LLM of choice!
 - **Component not rendering?** Check props and console errors
 - **State not updating?** Verify parent passes callbacks correctly
 - **Styling broken?** Check Tailwind classes and parent container
-
-For questions about the architecture, refer to this doc or check the component source code directly!
