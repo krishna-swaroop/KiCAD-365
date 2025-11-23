@@ -41,7 +41,7 @@ export const ProjectDetailView = ({ project, onBack }) => {
             // Do NOT auto-select any schematic or PCB file – let user choose
             // (selectedSchematic and selectedPcb remain null initially)
 
-        } catch (err) {
+        } catch {
             setToast({ type: 'error', message: "Could not load file structure" });
         }
     }, [project.id]);
@@ -74,7 +74,7 @@ export const ProjectDetailView = ({ project, onBack }) => {
                 if (!res.ok) throw new Error("Failed to download file");
                 const text = await res.text();
                 setPreviewFile({ name: filePath, url, content: text });
-            } catch (e) {
+            } catch {
                 setToast({ type: 'error', message: "Failed to load file content" });
             }
         } else {

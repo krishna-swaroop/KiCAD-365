@@ -6,9 +6,9 @@ This guide provides step-by-step instructions for setting up and hosting the KiC
 
 Before you begin, ensure you have the following software installed:
 
-1.  **KiCAD (Version 8.0+)**:
+1.  **KiCAD (Version 7.0+)**:
     *   Download and install from [kicad.org](https://www.kicad.org/download/windows/).
-    *   **Important**: During installation, ensure you select the option to add KiCAD to your system `PATH`. If you missed this, you'll need to add `C:\Program Files\KiCad\8.0\bin` (or your installation path) to your Environment Variables manually.
+    *   **Important**: During installation, ensure you select the option to add KiCAD to your system `PATH`. If you missed this, you'll need to add `C:\Program Files\KiCad\7.0\bin` (or your installation path) to your Environment Variables manually.
     *   Verify by opening Command Prompt (`cmd`) and typing `kicad-cli --version`.
 
 2.  **Python (Version 3.10+)**:
@@ -27,15 +27,18 @@ Before you begin, ensure you have the following software installed:
 ### 1. Clone the Repository
 Open PowerShell or Command Prompt and run:
 ```powershell
-git clone https://github.com/Pixxel-Space/KiCAD-365-Dev.git
-cd KiCAD-365-Dev/KiCAD-365
+# Clone the repository
+git clone https://github.com/krishna-swaroop/KiCAD-365.git
+
+# Change directory to the repository
+cd KiCAD-365
 ```
 
 ### 2. Backend Setup
 Navigate to the backend directory and set up the Python environment:
 
 ```powershell
-cd gemini-impl/backend
+cd backend
 
 # Create a virtual environment
 python -m venv .venv
@@ -58,7 +61,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 Open a **new** terminal window, navigate to the frontend directory, and start the development server:
 
 ```powershell
-cd gemini-impl/kicad-frontend
+cd kicad-frontend
 
 # Install dependencies
 npm install
@@ -79,7 +82,7 @@ Open your browser and navigate to:
     1.  Search for "Edit the system environment variables" in Windows Search.
     2.  Click "Environment Variables".
     3.  Under "System variables", find `Path` and click "Edit".
-    4.  Add a new entry: `C:\Program Files\KiCad\8.0\bin` (adjust version/path as needed).
+    4.  Add a new entry: `C:\Program Files\KiCad\7.0\bin` (adjust version/path as needed).
     5.  Restart your terminal/IDE and the backend server.
 
 ### "Script is disabled on this system" (PowerShell)
@@ -91,5 +94,5 @@ Open your browser and navigate to:
     Or use Command Prompt (`cmd`) instead.
 
 ### Firewall Warnings
-*   **Issue**: Windows Firewall may block Python or Node.js.
-*   **Fix**: Click "Allow Access" if prompted to allow connections on Private networks.
+*   **Issue**: Windows Firewall may block Python or Node.js. Allow access at your own peril. 
+*   **Use your best judgement.**

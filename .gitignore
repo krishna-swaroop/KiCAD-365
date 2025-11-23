@@ -1,0 +1,43 @@
+# General
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# KiCAD
+*.lck
+*.bkp
+*.bak
+*_autosave.kicad_pcb
+*_autosave.kicad_sch
+fp-info-cache
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project Specific to ensure that database folder is NOT committed to Git
+/data

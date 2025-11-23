@@ -9,7 +9,7 @@ export const EngineeringView = ({
     projectName,
     schematicUrl,
     pcbUrl,
-    model3DUrl,
+
     schematicPath,
     pcbPath,
     schematicFiles = [],

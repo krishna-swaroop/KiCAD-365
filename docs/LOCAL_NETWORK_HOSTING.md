@@ -26,14 +26,14 @@ The backend must bind to `0.0.0.0` to accept connections from other devices:
 
 ### macOS/Linux:
 ```bash
-cd gemini-impl/backend
+cd backend
 source .venv/bin/activate
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### Windows (PowerShell):
 ```powershell
-cd gemini-impl\backend
+cd backend
 .venv\Scripts\Activate.ps1
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
@@ -43,7 +43,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 The frontend must also bind to `0.0.0.0`:
 
 ```bash
-cd gemini-impl/kicad-frontend
+cd kicad-frontend
 npm run dev -- --host 0.0.0.0
 ```
 

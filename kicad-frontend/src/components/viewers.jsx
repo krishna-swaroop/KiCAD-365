@@ -11,17 +11,17 @@ export const MarkdownViewer = ({ content, baseFileUrl, currentFilePath }) => {
             <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
-                    h1: ({ node, ...props }) => <h1 className="text-3xl font-bold pb-4 mb-6 border-b-2 border-black mt-2 font-mono uppercase tracking-tight" {...props} />,
-                    h2: ({ node, ...props }) => <h2 className="text-xl font-bold pb-2 mb-4 border-b border-black mt-8 font-mono uppercase tracking-widest" {...props} />,
-                    h3: ({ node, ...props }) => <h3 className="text-lg font-bold mb-2 mt-6 font-mono uppercase border-b border-gray-200 pb-1 inline-block" {...props} />,
-                    h4: ({ node, ...props }) => <h4 className="text-base font-bold mb-2 mt-4 font-mono uppercase text-gray-700" {...props} />,
-                    p: ({ node, ...props }) => <div className="mb-4 leading-relaxed font-mono text-sm text-gray-800" {...props} />,
-                    ul: ({ node, ...props }) => <ul className="list-disc list-inside mb-4 pl-4 font-mono text-sm" {...props} />,
-                    ol: ({ node, ...props }) => <ol className="list-decimal list-inside mb-4 pl-4 font-mono text-sm" {...props} />,
-                    li: ({ node, ...props }) => <li className="mb-1" {...props} />,
-                    a: ({ node, ...props }) => <a className="text-blue-600 hover:underline font-mono font-bold" {...props} />,
-                    blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-black pl-4 py-2 mb-4 text-gray-600 bg-gray-50 font-mono italic" {...props} />,
-                    code: ({ node, inline, className, children, ...props }) => {
+                    h1: ({ ...props }) => <h1 className="text-3xl font-bold pb-4 mb-6 border-b-2 border-black mt-2 font-mono uppercase tracking-tight" {...props} />,
+                    h2: ({ ...props }) => <h2 className="text-xl font-bold pb-2 mb-4 border-b border-black mt-8 font-mono uppercase tracking-widest" {...props} />,
+                    h3: ({ ...props }) => <h3 className="text-lg font-bold mb-2 mt-6 font-mono uppercase border-b border-gray-200 pb-1 inline-block" {...props} />,
+                    h4: ({ ...props }) => <h4 className="text-base font-bold mb-2 mt-4 font-mono uppercase text-gray-700" {...props} />,
+                    p: ({ ...props }) => <div className="mb-4 leading-relaxed font-mono text-sm text-gray-800" {...props} />,
+                    ul: ({ ...props }) => <ul className="list-disc list-inside mb-4 pl-4 font-mono text-sm" {...props} />,
+                    ol: ({ ...props }) => <ol className="list-decimal list-inside mb-4 pl-4 font-mono text-sm" {...props} />,
+                    li: ({ ...props }) => <li className="mb-1" {...props} />,
+                    a: ({ ...props }) => <a className="text-blue-600 hover:underline font-mono font-bold" {...props} />,
+                    blockquote: ({ ...props }) => <blockquote className="border-l-4 border-black pl-4 py-2 mb-4 text-gray-600 bg-gray-50 font-mono italic" {...props} />,
+                    code: ({ inline, children, ...props }) => {
                         if (inline) {
                             return <code className="bg-gray-100 px-1.5 py-0.5 text-xs font-mono border border-gray-300 text-red-600 rounded-sm" {...props}>{children}</code>;
                         }
@@ -31,12 +31,12 @@ export const MarkdownViewer = ({ content, baseFileUrl, currentFilePath }) => {
                             </pre>
                         );
                     },
-                    table: ({ node, ...props }) => <div className="overflow-x-auto mb-6"><table className="w-full border-collapse text-sm font-mono border border-black" {...props} /></div>,
-                    thead: ({ node, ...props }) => <thead className="bg-black text-white" {...props} />,
-                    th: ({ node, ...props }) => <th className="border border-black p-3 font-bold text-left uppercase tracking-wider" {...props} />,
-                    td: ({ node, ...props }) => <td className="border border-black p-2 align-top text-gray-800" {...props} />,
-                    hr: ({ node, ...props }) => <hr className="my-8 border-t-2 border-black" {...props} />,
-                    img: ({ node, ...props }) => {
+                    table: ({ ...props }) => <div className="overflow-x-auto mb-6"><table className="w-full border-collapse text-sm font-mono border border-black" {...props} /></div>,
+                    thead: ({ ...props }) => <thead className="bg-black text-white" {...props} />,
+                    th: ({ ...props }) => <th className="border border-black p-3 font-bold text-left uppercase tracking-wider" {...props} />,
+                    td: ({ ...props }) => <td className="border border-black p-2 align-top text-gray-800" {...props} />,
+                    hr: ({ ...props }) => <hr className="my-8 border-t-2 border-black" {...props} />,
+                    img: ({ ...props }) => {
                         let src = props.src;
                         if (src && !src.startsWith('http') && !src.startsWith('https') && !src.startsWith('//')) {
                             const resolvedPath = resolveRelativePath(currentFilePath, src);
