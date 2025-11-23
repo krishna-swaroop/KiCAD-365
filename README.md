@@ -53,3 +53,6 @@ A web-based platform for viewing, managing, and collaborating on KiCAD hardware 
 ## Contributing
 
 Contributions are welcome! Please see the [Contributing Guidelines](CONTRIBUTING.md) for details on how to submit pull requests, report issues, and suggest enhancements.
+
+
+**Huge Shoutout to ![@theacodes](https://github.com/theacodes) for their work on the ![KiCanvas Project](https://github.com/theacodes/kicanvas)**
