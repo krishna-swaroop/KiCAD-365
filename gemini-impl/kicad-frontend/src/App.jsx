@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
   Plus,
   Github,
@@ -18,7 +20,8 @@ import {
   Terminal,
   X,
   Table as TableIcon,
-  FileText
+  FileText,
+  FileCode
 } from 'lucide-react';
 
 const API_BASE = "http://192.168.1.55:8000/api";
@@ -80,64 +83,59 @@ const Toast = ({ message, type, onClose }) => {
   );
 };
 
-// --- Preview Modal Component ---
+// --- Viewers ---
 
-const PreviewModal = ({ file, onClose }) => {
-  const isPdf = file.name.toLowerCase().endsWith('.pdf');
-  const isCsv = file.name.toLowerCase().endsWith('.csv');
-
+const MarkdownViewer = ({ content }) => {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 md:p-8">
-      <div className="bg-white w-full max-w-[95vw] h-[95vh] flex flex-col border border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] animate-slide-in">
-        {/* Modal Header */}
-        <div className="flex justify-between items-center p-4 border-b border-black bg-gray-50">
-          <div className="flex items-center gap-3">
-            {isPdf ? <FileText size={20} /> : <TableIcon size={20} />}
-            <div>
-              <h3 className="text-sm font-bold uppercase font-mono">{file.name.split('/').pop()}</h3>
-              <p className="text-[10px] text-gray-500 font-mono tracking-widest">{file.name}</p>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <a href={file.url} download>
-              <Button variant="secondary" className="!py-1.5 !px-3">Download</Button>
-            </a>
-            <Button onClick={onClose} variant="primary" className="!py-1.5 !px-3"><X size={16} /></Button>
-          </div>
-        </div>
+    <div className="p-8 max-w-5xl mx-auto bg-white min-h-full">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          // Headers
+          h1: ({ node, ...props }) => <h1 className="text-3xl font-bold pb-4 mb-6 border-b-2 border-black mt-2 font-mono uppercase tracking-tight" {...props} />,
+          h2: ({ node, ...props }) => <h2 className="text-xl font-bold pb-2 mb-4 border-b border-black mt-8 font-mono uppercase tracking-widest" {...props} />,
+          h3: ({ node, ...props }) => <h3 className="text-lg font-bold mb-2 mt-6 font-mono uppercase border-b border-gray-200 pb-1 inline-block" {...props} />,
+          h4: ({ node, ...props }) => <h4 className="text-base font-bold mb-2 mt-4 font-mono uppercase text-gray-700" {...props} />,
 
-        {/* Modal Content */}
-        <div className="flex-1 overflow-auto bg-gray-100 p-4">
-          {isPdf && (
-            <iframe src={file.url} className="w-full h-full border border-black" title="PDF Viewer" />
-          )}
+          // Text & Lists
+          p: ({ node, ...props }) => <p className="mb-4 leading-relaxed font-mono text-sm text-gray-800" {...props} />,
+          ul: ({ node, ...props }) => <ul className="list-disc list-inside mb-4 pl-4 font-mono text-sm" {...props} />,
+          ol: ({ node, ...props }) => <ol className="list-decimal list-inside mb-4 pl-4 font-mono text-sm" {...props} />,
+          li: ({ node, ...props }) => <li className="mb-1" {...props} />,
+          a: ({ node, ...props }) => <a className="text-blue-600 hover:underline font-mono font-bold" {...props} />,
+          blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-black pl-4 py-2 mb-4 text-gray-600 bg-gray-50 font-mono italic" {...props} />,
 
-          {isCsv && (
-            <div className="bg-white border border-black p-4 min-h-full">
-              <CsvViewer content={file.content} />
-            </div>
-          )}
+          // Code
+          code: ({ node, inline, className, children, ...props }) => {
+            return inline ?
+              <code className="bg-gray-100 px-1.5 py-0.5 text-xs font-mono border border-gray-300 text-red-600 rounded-sm" {...props}>{children}</code> :
+              <pre className="bg-black text-white p-4 mb-4 overflow-x-auto border border-black text-xs font-mono mt-2"><code {...props}>{children}</code></pre>
+          },
 
-          {!isPdf && !isCsv && (
-            <div className="flex items-center justify-center h-full text-gray-400">
-              Preview not available for this file type.
-            </div>
-          )}
-        </div>
-      </div>
+          // Tables (US Graphics Style)
+          table: ({ node, ...props }) => <div className="overflow-x-auto mb-6"><table className="w-full border-collapse text-sm font-mono border border-black" {...props} /></div>,
+          thead: ({ node, ...props }) => <thead className="bg-black text-white" {...props} />,
+          th: ({ node, ...props }) => <th className="border border-black p-3 font-bold text-left uppercase tracking-wider" {...props} />,
+          td: ({ node, ...props }) => <td className="border border-black p-2 align-top text-gray-800" {...props} />,
+
+          // Misc
+          hr: ({ node, ...props }) => <hr className="my-8 border-t-2 border-black" {...props} />,
+          img: ({ node, ...props }) => <img className="max-w-full h-auto border border-black my-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]" {...props} />,
+        }}
+      >
+        {content}
+      </ReactMarkdown>
     </div>
   );
 };
 
 // --- CSV Parsing Logic ---
-// This function properly handles quoted CSV fields
 const parseCSV = (text) => {
   const rows = [];
   let currentRow = [];
   let currentCell = '';
   let inQuotes = false;
 
-  // Normalize line endings
   const cleanText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
   for (let i = 0; i < cleanText.length; i++) {
@@ -146,19 +144,15 @@ const parseCSV = (text) => {
 
     if (char === '"') {
       if (inQuotes && nextChar === '"') {
-        // Double quote inside quotes acts as an escape for a quote
         currentCell += '"';
-        i++; // Skip the next quote
+        i++;
       } else {
-        // Toggle quote state
         inQuotes = !inQuotes;
       }
     } else if (char === ',' && !inQuotes) {
-      // Cell separator
       currentRow.push(currentCell);
       currentCell = '';
     } else if (char === '\n' && !inQuotes) {
-      // Row separator
       currentRow.push(currentCell);
       if (currentRow.length > 1 || (currentRow.length === 1 && currentRow[0] !== '')) {
         rows.push(currentRow);
@@ -166,12 +160,10 @@ const parseCSV = (text) => {
       currentRow = [];
       currentCell = '';
     } else {
-      // Normal character
       currentCell += char;
     }
   }
 
-  // Push the final row if exists
   if (currentRow.length > 0) {
     currentRow.push(currentCell);
     rows.push(currentRow);
@@ -206,7 +198,6 @@ const CsvViewer = ({ content }) => {
             <tr key={i} className="hover:bg-gray-100 transition-colors">
               {row.map((cell, j) => (
                 <td key={j} className="border border-gray-300 p-2 min-w-[100px] max-w-[300px] break-words align-top">
-                  {/* If the cell contains many commas (like Reference list), add spacing for readability */}
                   {cell.length > 50 && cell.includes(',') ? cell.split(',').join(', ') : cell}
                 </td>
               ))}
@@ -214,6 +205,69 @@ const CsvViewer = ({ content }) => {
           ))}
         </tbody>
       </table>
+    </div>
+  );
+};
+
+// --- Preview Modal Component ---
+
+const PreviewModal = ({ file, onClose }) => {
+  const name = file.name.toLowerCase();
+  const isPdf = name.endsWith('.pdf');
+  const isCsv = name.endsWith('.csv');
+  const isMd = name.endsWith('.md');
+
+  // Icon Selection
+  let HeaderIcon = File;
+  if (isPdf) HeaderIcon = FileText;
+  if (isCsv) HeaderIcon = TableIcon;
+  if (isMd) HeaderIcon = FileCode;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 md:p-8">
+      <div className="bg-white w-full max-w-[95vw] h-[95vh] flex flex-col border border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] animate-slide-in">
+        {/* Modal Header */}
+        <div className="flex justify-between items-center p-4 border-b border-black bg-gray-50">
+          <div className="flex items-center gap-3">
+            <HeaderIcon size={20} />
+            <div>
+              <h3 className="text-sm font-bold uppercase font-mono">{file.name.split('/').pop()}</h3>
+              <p className="text-[10px] text-gray-500 font-mono tracking-widest">{file.name}</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <a href={file.url} download>
+              <Button variant="secondary" className="!py-1.5 !px-3">Download</Button>
+            </a>
+            <Button onClick={onClose} variant="primary" className="!py-1.5 !px-3"><X size={16} /></Button>
+          </div>
+        </div>
+
+        {/* Modal Content */}
+        <div className="flex-1 overflow-auto bg-white p-0">
+          {isPdf && (
+            <iframe src={file.url} className="w-full h-full border-none" title="PDF Viewer" />
+          )}
+
+          {isCsv && (
+            <div className="p-8">
+              <CsvViewer content={file.content} />
+            </div>
+          )}
+
+          {isMd && (
+            <div className="bg-white min-h-full">
+              <MarkdownViewer content={file.content} />
+            </div>
+          )}
+
+          {!isPdf && !isCsv && !isMd && (
+            <div className="flex items-center justify-center h-full text-gray-400">
+              Preview not available for this file type.
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
@@ -308,15 +362,17 @@ export default function App() {
   // Logic: Handle Preview Request
   const handlePreview = async (filePath) => {
     const url = `${API_BASE}/projects/${selectedProject.id}/file/${filePath}`;
-    const isCsv = filePath.toLowerCase().endsWith('.csv');
+    const lowerPath = filePath.toLowerCase();
+    const isTextBased = lowerPath.endsWith('.csv') || lowerPath.endsWith('.md');
 
-    if (isCsv) {
+    if (isTextBased) {
       try {
         const res = await fetch(url);
+        if (!res.ok) throw new Error("Failed to download file");
         const text = await res.text();
         setPreviewFile({ name: filePath, url, content: text });
       } catch (e) {
-        setToast({ type: 'error', message: "Failed to load CSV content" });
+        setToast({ type: 'error', message: "Failed to load file content" });
       }
     } else {
       setPreviewFile({ name: filePath, url, content: null });
@@ -385,7 +441,8 @@ export default function App() {
                 ) : (
                   <ul className="divide-y divide-gray-100">
                     {projectFiles[activeTab].map((filePath, idx) => {
-                      const isPreviewable = filePath.endsWith('.pdf') || filePath.endsWith('.csv');
+                      const lower = filePath.toLowerCase();
+                      const isPreviewable = lower.endsWith('.pdf') || lower.endsWith('.csv') || lower.endsWith('.md');
                       const downloadUrl = `${API_BASE}/projects/${selectedProject.id}/file/${filePath}`;
                       return (
                         <li key={idx} className="group flex items-center justify-between p-4 hover:bg-gray-50 transition-colors">

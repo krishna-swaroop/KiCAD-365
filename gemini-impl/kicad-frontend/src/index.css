@@ -2,11 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Global Styles for aesthetics */
 body {
   background-color: #F4F4F4;
   -webkit-font-smoothing: antialiased;
 }
 
+/* Scrollbar Styling for Webkit */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
