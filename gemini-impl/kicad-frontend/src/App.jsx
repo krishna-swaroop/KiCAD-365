@@ -2,9 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Plus,
   Github,
-  Folder,
-  RefreshCw,
-  ArrowLeft,
   Activity,
   AlertCircle,
   Loader2,
@@ -13,9 +10,7 @@ import {
 } from 'lucide-react';
 
 import { Button, Input, SectionHeader, Toast } from './components/ui';
-import { PreviewModal } from './components/viewers';
-import { FileTree } from './components/FileTree';
-import { getIconForName } from './utils';
+import { ProjectDetailView } from './components/ProjectDetailView';
 
 const API_BASE = `http://${window.location.hostname}:8000/api`;
 
@@ -27,11 +22,6 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [newRepoUrl, setNewRepoUrl] = useState('');
   const [isAdding, setIsAdding] = useState(false);
-  const [projectFiles, setProjectFiles] = useState({});
-  const [activeTab, setActiveTab] = useState(null);
-  const [tabs, setTabs] = useState([]);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [previewFile, setPreviewFile] = useState(null);
 
   const fetchProjects = useCallback(async () => {
     try {
@@ -82,75 +72,9 @@ export default function App() {
     }
   };
 
-  const loadProjectDetails = async (project) => {
+  const loadProjectDetails = (project) => {
     setSelectedProject(project);
     setView('project');
-    setProjectFiles({});
-    setTabs([]);
-    try {
-      const res = await fetch(`${API_BASE}/projects/${project.id}/tree`);
-      if (!res.ok) throw new Error("Failed to load project files");
-      const data = await res.json();
-
-      // Define the specific folders to display in the desired order
-      const orderedFolders = ['docs', 'Design-Outputs', 'Manufacturing-Outputs', 'simulation'];
-
-      // Generate tabs based on the ordered list, only including those present in the data
-      const dynamicTabs = orderedFolders
-        .filter(key => data[key])
-        .map(key => ({
-          id: key,
-          label: key.replace(/_/g, ' ').replace(/-/g, ' '), // "Design-Outputs" -> "Design Outputs"
-          icon: getIconForName(key)
-        }));
-
-      setTabs(dynamicTabs);
-      setProjectFiles(data);
-
-      // Default to the first tab if available
-      if (dynamicTabs.length > 0) {
-        setActiveTab(dynamicTabs[0].id);
-      }
-    } catch (err) {
-      setToast({ type: 'error', message: "Could not load file structure" });
-    }
-  };
-
-  const handleSyncAndBuild = async () => {
-    if (!selectedProject) return;
-    setIsSyncing(true);
-    try {
-      const res = await fetch(`${API_BASE}/projects/${selectedProject.id}/build`, { method: 'POST' });
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.detail || "Build failed");
-      }
-      await loadProjectDetails(selectedProject);
-      setToast({ type: 'success', message: 'Sync & Jobset Execution Complete' });
-    } catch (err) {
-      setToast({ type: 'error', message: err.message });
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  const handlePreview = async (filePath) => {
-    const url = `${API_BASE}/projects/${selectedProject.id}/file/${filePath}`;
-    const lowerPath = filePath.toLowerCase();
-    const isTextBased = lowerPath.endsWith('.csv') || lowerPath.endsWith('.md');
-
-    if (isTextBased) {
-      try {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("Failed to download file");
-        const text = await res.text();
-        setPreviewFile({ name: filePath, url, content: text });
-      } catch (e) {
-        setToast({ type: 'error', message: "Failed to load file content" });
-      }
-    } else {
-      setPreviewFile({ name: filePath, url, content: null });
-    }
   };
 
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
@@ -158,98 +82,12 @@ export default function App() {
   const getThumbnailSrc = (project) => project.thumbnail_url ? `${API_BASE}/projects/${project.id}/file/${project.thumbnail_url}` : null;
 
   if (view === 'project' && selectedProject) {
+
     return (
-      <div className="min-h-screen bg-[#F4F4F4] text-black flex flex-col font-mono selection:bg-black selection:text-white">
-        <header className="bg-white border-b border-black px-6 py-4 flex justify-between items-center sticky top-0 z-20 shadow-sm">
-          <div className="flex items-center gap-6">
-            <Button variant="ghost" onClick={() => setView('home')} className="!px-0 hover:!bg-transparent">
-              <ArrowLeft size={16} /> <span className="underline decoration-1 underline-offset-4">BACK TO GALLERY</span>
-            </Button>
-            <div className="h-8 w-px bg-gray-300" />
-            <div>
-              <h1 className="text-xl font-bold uppercase tracking-tighter leading-none">{selectedProject.name}</h1>
-              <p className="text-[10px] text-gray-500 font-mono tracking-widest mt-1">ID: {selectedProject.id}</p>
-            </div>
-          </div>
-          <Button onClick={handleSyncAndBuild} disabled={isSyncing}>
-            {isSyncing ? <Loader2 className="animate-spin" size={16} /> : <RefreshCw size={16} />}
-            {isSyncing ? "PROCESSING..." : "SYNC & BUILD"}
-          </Button>
-        </header>
-
-        <div className="flex flex-1 overflow-hidden">
-          <nav className="w-72 bg-white border-r border-black flex flex-col overflow-y-auto">
-            <div className="p-4 border-b border-gray-100">
-              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Project Directories</div>
-            </div>
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              const hasItems = projectFiles[tab.id] && projectFiles[tab.id].length > 0;
-
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center justify-between p-5 text-xs font-bold uppercase border-b border-gray-100 transition-all
-                    ${isActive ? 'bg-black text-white' : 'hover:bg-gray-100 text-black'}
-                  `}
-                >
-                  <div className="flex items-center gap-3">
-                    <Icon size={16} />
-                    {tab.label}
-                  </div>
-                  <span className={`w-2 h-2 rounded-full ${hasItems ? 'bg-green-500' : 'bg-gray-300'}`} />
-                </button>
-              );
-            })}
-          </nav>
-
-          <main className="flex-1 p-8 overflow-y-auto bg-[#F4F4F4]">
-            <div className="max-w-6xl mx-auto">
-              {activeTab && (
-                <>
-                  <SectionHeader
-                    title={tabs.find(t => t.id === activeTab)?.label || activeTab}
-                    icon={Folder}
-                    rightElement={
-                      <span className="text-[10px] text-gray-500 font-mono">
-                        /{activeTab}
-                      </span>
-                    }
-                  />
-
-                  <div className="bg-white border border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)]">
-                    {!projectFiles[activeTab] || projectFiles[activeTab].length === 0 ? (
-                      <div className="p-16 text-center text-gray-400 flex flex-col items-center">
-                        <Folder size={48} className="mb-4 opacity-20" strokeWidth={1} />
-                        <p className="text-xs uppercase tracking-widest font-bold">Directory Empty</p>
-                        <p className="text-[10px] mt-2 max-w-xs text-center">Run "Sync & Build" to generate outputs if this is an output directory.</p>
-                      </div>
-                    ) : (
-                      <div className="p-4">
-                        <FileTree
-                          items={projectFiles[activeTab]}
-                          onPreview={handlePreview}
-                          projectId={selectedProject.id}
-                        />
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          </main>
-        </div>
-        {previewFile && (
-          <PreviewModal
-            file={previewFile}
-            onClose={() => setPreviewFile(null)}
-            baseFileUrl={`${API_BASE}/projects/${selectedProject.id}/file`}
-          />
-        )}
-        {toast && <Toast {...toast} onClose={() => setToast(null)} />}
-      </div>
+      <ProjectDetailView
+        project={selectedProject}
+        onBack={() => setView('home')}
+      />
     );
   }
 

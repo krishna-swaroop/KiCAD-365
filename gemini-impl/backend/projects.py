@@ -2,6 +2,7 @@ from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import FileResponse
 import importer  # Local import
 import models    # Local import
+import converter  # Local import
 import subprocess
 import shlex
 import os
@@ -185,3 +186,38 @@ async def sync_and_build(project_id: str):
         raise HTTPException(status_code=500, detail=f"Build failed: {str(e)}")
         
     return {"message": "Sync and build completed successfully"}
+
+@router.get("/projects/{project_id}/3d-model")
+async def get_3d_model(project_id: str, file: str = None):
+    """
+    Get 3D model in GLB format for web viewing.
+    If file parameter is provided, uses that PCB file.
+    Otherwise, finds the main PCB file automatically.
+    Converts/caches if needed.
+    """
+    project_path = importer.PROJECTS_DIR / project_id
+    if not project_path.exists():
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Find PCB file
+    if file:
+        pcb_file_path = project_path / file
+    else:
+        # Find first .kicad_pcb file in root
+        pcb_files = list(project_path.glob("*.kicad_pcb"))
+        if not pcb_files:
+            raise HTTPException(status_code=404, detail="No PCB file found in project")
+        pcb_file_path = pcb_files[0]
+    
+    if not pcb_file_path.exists():
+        raise HTTPException(status_code=404, detail=f"PCB file not found: {file}")
+    
+    # Convert to GLB
+    glb_path = converter.get_3d_model(pcb_file_path)
+    
+    if not glb_path or not glb_path.exists():
+        raise HTTPException(status_code=500, detail="Failed to convert 3D model to GLB format")
+    
+    return FileResponse(glb_path, media_type='model/gltf-binary', headers={
+        "Cache-Control": "public, max-age=3600"
+    })

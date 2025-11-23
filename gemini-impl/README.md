@@ -13,6 +13,7 @@ A web-based platform for viewing, managing, and collaborating on KiCAD hardware 
 
 ### 📚 Documentation
 - [Folder Structure](./docs/FOLDER_STRUCTURE.md)
+- [Frontend Architecture](./docs/FRONTEND_ARCHITECTURE.md)
 - [Windows Hosting Guide](./docs/WINDOWS_HOSTING.md)
 - [Local Network Hosting Guide](./docs/LOCAL_NETWORK_HOSTING.md)
 
