@@ -1,60 +1,116 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Cpu } from 'lucide-react';
 import { SectionHeader } from './ui';
-// import { ThreeDViewer } from './ThreeDViewer'; // Temporarily disabled due to React 19 incompatibility
 import { WorkInProgressPane } from './WorkInProgressPane';
+import { PCBViewer } from './PCBViewer';
+import { SchematicViewer } from './SchematicViewer';
 
-export const EngineeringView = ({ projectName, schematicUrl, pcbUrl, model3DUrl }) => {
+export const EngineeringView = ({
+    projectName,
+    schematicUrl,
+    pcbUrl,
+    model3DUrl,
+    schematicPath,
+    pcbPath,
+    schematicFiles = [],
+    pcbFiles = [],
+    setSelectedSchematic,
+    setSelectedPcb,
+}) => {
+    const [viewMode, setViewMode] = useState('schematic'); // 'schematic' | 'pcb' | '3d'
+
+    const renderHeader = () => {
+        const label = viewMode === 'schematic' ? 'Schematic Source' : viewMode === 'pcb' ? 'PCB Layout File' : '3D Model Source';
+        return (
+            <div className="flex items-center justify-between bg-gray-100 text-black px-4 py-2 border-b border-gray-300 font-mono text-xs">
+                <span className="uppercase tracking-wider font-bold text-gray-500">{label}</span>
+                {viewMode === 'schematic' && (
+                    <select
+                        className="bg-white border border-gray-300 text-black text-xs rounded-sm px-2 py-1 focus:outline-none focus:ring-1 focus:ring-black"
+                        value={schematicPath || ''}
+                        onChange={e => setSelectedSchematic && setSelectedSchematic(e.target.value)}
+                    >
+                        <option value="">-- Select Schematic --</option>
+                        {schematicFiles.map(f => (
+                            <option key={f.path} value={f.path}>{f.name}</option>
+                        ))}
+                    </select>
+                )}
+                {viewMode === 'pcb' && (
+                    <select
+                        className="bg-white border border-gray-300 text-black text-xs rounded-sm px-2 py-1 focus:outline-none focus:ring-1 focus:ring-black"
+                        value={pcbPath || ''}
+                        onChange={e => setSelectedPcb && setSelectedPcb(e.target.value)}
+                    >
+                        <option value="">-- Select PCB --</option>
+                        {pcbFiles.map(f => (
+                            <option key={f.path} value={f.path}>{f.name}</option>
+                        ))}
+                    </select>
+                )}
+            </div>
+        );
+    };
+
+    const renderViewer = () => {
+        if (viewMode === 'schematic') {
+            return <SchematicViewer key={schematicUrl} fileUrl={schematicUrl} />;
+        }
+        if (viewMode === 'pcb') {
+            return <PCBViewer key={pcbUrl} fileUrl={pcbUrl} />;
+        }
+        return (
+            <WorkInProgressPane
+                title="3D Model Viewer"
+                fileType="STEP / WRL"
+            />
+        );
+    };
+
     return (
-        <div className="h-full flex flex-col bg-white">
-            {/* Header */}
-            <div className="border-b border-black bg-gray-50 px-6 py-4">
-                <SectionHeader icon={Cpu} title={`Engineering View: ${projectName}`} />
+        <div className="h-full flex flex-col bg-white border border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)]">
+            <div className="p-4 pb-0">
+                <SectionHeader
+                    title={`Engineering View`}
+                    icon={Cpu}
+                    rightElement={
+                        <div className="flex items-center gap-6">
+                            {/* Toggle Switch moved to Header Level */}
+                            <div className="flex items-center bg-gray-100 p-1 rounded-sm border border-gray-200">
+                                <button
+                                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-sm transition-all ${viewMode === 'schematic' ? 'bg-black text-white shadow-sm' : 'text-gray-500 hover:text-black'}`}
+                                    onClick={() => setViewMode('schematic')}
+                                >
+                                    Schematic
+                                </button>
+                                <button
+                                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-sm transition-all ${viewMode === 'pcb' ? 'bg-black text-white shadow-sm' : 'text-gray-500 hover:text-black'}`}
+                                    onClick={() => setViewMode('pcb')}
+                                >
+                                    PCB
+                                </button>
+                                <button
+                                    className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-sm transition-all ${viewMode === '3d' ? 'bg-black text-white shadow-sm' : 'text-gray-500 hover:text-black'}`}
+                                    onClick={() => setViewMode('3d')}
+                                >
+                                    3D Model
+                                </button>
+                            </div>
+
+                            <span className="text-[10px] text-gray-500 font-mono border-l border-gray-300 pl-4 h-6 flex items-center">
+                                {projectName}
+                            </span>
+                        </div>
+                    }
+                />
             </div>
 
-            {/* 3-Pane Layout */}
-            <div className="flex-1 grid grid-cols-2 grid-rows-2 gap-0 border-l border-black">
-                {/* Top Left: Schematic */}
-                <div className="border-r border-b border-black relative">
-                    <div className="absolute top-0 left-0 right-0 z-10 bg-gray-900 text-white px-4 py-2 border-b border-gray-700">
-                        <span className="font-mono text-xs uppercase tracking-wider">Schematic</span>
-                    </div>
-                    <div className="h-full pt-10">
-                        <WorkInProgressPane
-                            title="Schematic"
-                            downloadUrl={schematicUrl}
-                            fileType="Schematic PDF"
-                        />
-                    </div>
-                </div>
+            {/* Sub-Header with Dropdowns */}
+            {renderHeader()}
 
-                {/* Top Right: PCB */}
-                <div className="border-b border-black relative">
-                    <div className="absolute top-0 left-0 right-0 z-10 bg-gray-900 text-white px-4 py-2 border-b border-gray-700">
-                        <span className="font-mono text-xs uppercase tracking-wider">PCB Layout</span>
-                    </div>
-                    <div className="h-full pt-10">
-                        <WorkInProgressPane
-                            title="PCB"
-                            downloadUrl={pcbUrl}
-                            fileType="PCB PDF"
-                        />
-                    </div>
-                </div>
-
-                {/* Bottom: 3D Model (spans both columns) */}
-                <div className="col-span-2 relative">
-                    <div className="absolute top-0 left-0 right-0 z-10 bg-gray-900 text-white px-4 py-2 border-b border-gray-700">
-                        <span className="font-mono text-xs uppercase tracking-wider">3D Model</span>
-                    </div>
-                    <div className="h-full pt-10">
-                        <WorkInProgressPane
-                            title="3D Model"
-                            downloadUrl={model3DUrl}
-                            fileType="3D STEP"
-                        />
-                    </div>
-                </div>
+            {/* Viewer area */}
+            <div className="flex-1 overflow-hidden bg-[#F4F4F4] min-h-[500px]">
+                {renderViewer()}
             </div>
         </div>
     );
