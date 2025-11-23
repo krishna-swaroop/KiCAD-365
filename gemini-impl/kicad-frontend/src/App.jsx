@@ -21,7 +21,9 @@ import {
   X,
   Table as TableIcon,
   FileText,
-  FileCode
+  FileCode,
+  ChevronRight,
+  ChevronDown
 } from 'lucide-react';
 
 const API_BASE = "http://192.168.1.55:8000/api";
@@ -85,42 +87,70 @@ const Toast = ({ message, type, onClose }) => {
 
 // --- Viewers ---
 
-const MarkdownViewer = ({ content }) => {
+const resolveRelativePath = (currentFile, relativePath) => {
+  if (!relativePath || relativePath.startsWith('/') || relativePath.startsWith('http')) {
+    return relativePath;
+  }
+  let cleanRelative = relativePath;
+  if (cleanRelative.startsWith('./')) {
+    cleanRelative = cleanRelative.substring(2);
+  }
+  const lastSlashIndex = currentFile.lastIndexOf('/');
+  const baseDir = lastSlashIndex !== -1 ? currentFile.substring(0, lastSlashIndex) : '';
+  const stack = baseDir ? baseDir.split('/') : [];
+  const validStack = stack.filter(s => s.length > 0);
+  const parts = cleanRelative.split('/');
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    if (part === '.') continue;
+    if (part === '..') {
+      if (validStack.length > 0) validStack.pop();
+    } else {
+      validStack.push(part);
+    }
+  }
+  return validStack.join('/');
+};
+
+const MarkdownViewer = ({ content, baseFileUrl, currentFilePath }) => {
   return (
     <div className="p-8 max-w-5xl mx-auto bg-white min-h-full">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          // Headers
           h1: ({ node, ...props }) => <h1 className="text-3xl font-bold pb-4 mb-6 border-b-2 border-black mt-2 font-mono uppercase tracking-tight" {...props} />,
           h2: ({ node, ...props }) => <h2 className="text-xl font-bold pb-2 mb-4 border-b border-black mt-8 font-mono uppercase tracking-widest" {...props} />,
           h3: ({ node, ...props }) => <h3 className="text-lg font-bold mb-2 mt-6 font-mono uppercase border-b border-gray-200 pb-1 inline-block" {...props} />,
           h4: ({ node, ...props }) => <h4 className="text-base font-bold mb-2 mt-4 font-mono uppercase text-gray-700" {...props} />,
-
-          // Text & Lists
-          p: ({ node, ...props }) => <p className="mb-4 leading-relaxed font-mono text-sm text-gray-800" {...props} />,
+          p: ({ node, ...props }) => <div className="mb-4 leading-relaxed font-mono text-sm text-gray-800" {...props} />,
           ul: ({ node, ...props }) => <ul className="list-disc list-inside mb-4 pl-4 font-mono text-sm" {...props} />,
           ol: ({ node, ...props }) => <ol className="list-decimal list-inside mb-4 pl-4 font-mono text-sm" {...props} />,
           li: ({ node, ...props }) => <li className="mb-1" {...props} />,
           a: ({ node, ...props }) => <a className="text-blue-600 hover:underline font-mono font-bold" {...props} />,
           blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-black pl-4 py-2 mb-4 text-gray-600 bg-gray-50 font-mono italic" {...props} />,
-
-          // Code
           code: ({ node, inline, className, children, ...props }) => {
-            return inline ?
-              <code className="bg-gray-100 px-1.5 py-0.5 text-xs font-mono border border-gray-300 text-red-600 rounded-sm" {...props}>{children}</code> :
-              <pre className="bg-black text-white p-4 mb-4 overflow-x-auto border border-black text-xs font-mono mt-2"><code {...props}>{children}</code></pre>
+            if (inline) {
+              return <code className="bg-gray-100 px-1.5 py-0.5 text-xs font-mono border border-gray-300 text-red-600 rounded-sm" {...props}>{children}</code>;
+            }
+            return (
+              <pre className="bg-black text-white p-4 mb-4 overflow-x-auto border border-black text-xs font-mono mt-2">
+                <code {...props}>{children}</code>
+              </pre>
+            );
           },
-
-          // Tables (US Graphics Style)
           table: ({ node, ...props }) => <div className="overflow-x-auto mb-6"><table className="w-full border-collapse text-sm font-mono border border-black" {...props} /></div>,
           thead: ({ node, ...props }) => <thead className="bg-black text-white" {...props} />,
           th: ({ node, ...props }) => <th className="border border-black p-3 font-bold text-left uppercase tracking-wider" {...props} />,
           td: ({ node, ...props }) => <td className="border border-black p-2 align-top text-gray-800" {...props} />,
-
-          // Misc
           hr: ({ node, ...props }) => <hr className="my-8 border-t-2 border-black" {...props} />,
-          img: ({ node, ...props }) => <img className="max-w-full h-auto border border-black my-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]" {...props} />,
+          img: ({ node, ...props }) => {
+            let src = props.src;
+            if (src && !src.startsWith('http') && !src.startsWith('https') && !src.startsWith('//')) {
+              const resolvedPath = resolveRelativePath(currentFilePath, src);
+              src = `${baseFileUrl}/${resolvedPath}`;
+            }
+            return <img className="max-w-full h-auto border border-black my-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]" {...props} src={src} alt={props.alt || "image"} />;
+          },
         }}
       >
         {content}
@@ -129,19 +159,15 @@ const MarkdownViewer = ({ content }) => {
   );
 };
 
-// --- CSV Parsing Logic ---
 const parseCSV = (text) => {
   const rows = [];
   let currentRow = [];
   let currentCell = '';
   let inQuotes = false;
-
   const cleanText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-
   for (let i = 0; i < cleanText.length; i++) {
     const char = cleanText[i];
     const nextChar = cleanText[i + 1];
-
     if (char === '"') {
       if (inQuotes && nextChar === '"') {
         currentCell += '"';
@@ -163,24 +189,19 @@ const parseCSV = (text) => {
       currentCell += char;
     }
   }
-
   if (currentRow.length > 0) {
     currentRow.push(currentCell);
     rows.push(currentRow);
   }
-
   return rows;
 };
 
 const CsvViewer = ({ content }) => {
   if (!content) return <div>Loading...</div>;
-
   const rows = parseCSV(content);
   if (rows.length === 0) return <div>Empty CSV</div>;
-
   const headers = rows[0];
   const data = rows.slice(1);
-
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left border-collapse text-xs font-mono bg-white">
@@ -209,15 +230,11 @@ const CsvViewer = ({ content }) => {
   );
 };
 
-// --- Preview Modal Component ---
-
-const PreviewModal = ({ file, onClose }) => {
+const PreviewModal = ({ file, onClose, baseFileUrl }) => {
   const name = file.name.toLowerCase();
   const isPdf = name.endsWith('.pdf');
   const isCsv = name.endsWith('.csv');
   const isMd = name.endsWith('.md');
-
-  // Icon Selection
   let HeaderIcon = File;
   if (isPdf) HeaderIcon = FileText;
   if (isCsv) HeaderIcon = TableIcon;
@@ -226,7 +243,6 @@ const PreviewModal = ({ file, onClose }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 md:p-8">
       <div className="bg-white w-full max-w-[95vw] h-[95vh] flex flex-col border border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] animate-slide-in">
-        {/* Modal Header */}
         <div className="flex justify-between items-center p-4 border-b border-black bg-gray-50">
           <div className="flex items-center gap-3">
             <HeaderIcon size={20} />
@@ -242,25 +258,20 @@ const PreviewModal = ({ file, onClose }) => {
             <Button onClick={onClose} variant="primary" className="!py-1.5 !px-3"><X size={16} /></Button>
           </div>
         </div>
-
-        {/* Modal Content */}
         <div className="flex-1 overflow-auto bg-white p-0">
           {isPdf && (
             <iframe src={file.url} className="w-full h-full border-none" title="PDF Viewer" />
           )}
-
           {isCsv && (
             <div className="p-8">
               <CsvViewer content={file.content} />
             </div>
           )}
-
           {isMd && (
             <div className="bg-white min-h-full">
-              <MarkdownViewer content={file.content} />
+              <MarkdownViewer content={file.content} baseFileUrl={baseFileUrl} currentFilePath={file.name} />
             </div>
           )}
-
           {!isPdf && !isCsv && !isMd && (
             <div className="flex items-center justify-center h-full text-gray-400">
               Preview not available for this file type.
@@ -272,10 +283,100 @@ const PreviewModal = ({ file, onClose }) => {
   );
 };
 
+// --- File Tree Component (Recursive) ---
+
+const FileTree = ({ items, onPreview, projectId }) => {
+  if (!items || items.length === 0) return null;
+
+  return (
+    <ul className="pl-0">
+      {items.map((item, idx) => (
+        <FileTreeNode
+          key={idx}
+          item={item}
+          onPreview={onPreview}
+          projectId={projectId}
+        />
+      ))}
+    </ul>
+  );
+};
+
+const FileTreeNode = ({ item, onPreview, projectId }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const isDirectory = item.type === 'directory';
+
+  const toggleOpen = () => {
+    if (isDirectory) setIsOpen(!isOpen);
+  };
+
+  // File Actions
+  const lower = item.name.toLowerCase();
+  const isPreviewable = lower.endsWith('.pdf') || lower.endsWith('.csv') || lower.endsWith('.md');
+  const downloadUrl = `${API_BASE}/projects/${projectId}/file/${item.path}`;
+
+  return (
+    <li className="select-none">
+      <div
+        // Added 'group' class here so group-hover works on children
+        className={`group flex items-center justify-between p-2 hover:bg-gray-100 transition-colors cursor-pointer border-b border-gray-50 ${isDirectory ? 'font-bold' : ''}`}
+        onClick={toggleOpen}
+      >
+        <div className="flex items-center gap-2 overflow-hidden">
+          <span className="text-gray-400 flex-shrink-0">
+            {isDirectory ? (
+              isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />
+            ) : (
+              <div className="w-3.5" /> // Spacer for alignment
+            )}
+          </span>
+
+          <span className={`flex-shrink-0 ${isDirectory ? 'text-black' : 'text-gray-500'}`}>
+            {isDirectory ? <Folder size={14} /> : <File size={14} />}
+          </span>
+
+          <span className="text-xs font-mono truncate">{item.name}</span>
+        </div>
+
+        {!isDirectory && (
+          // These buttons now appear on hover because parent has 'group' class
+          <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            {isPreviewable && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onPreview(item.path); }}
+                className="p-1 hover:bg-gray-200 rounded text-gray-600"
+                title="Preview"
+              >
+                <Eye size={12} />
+              </button>
+            )}
+            <a
+              href={downloadUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="p-1 hover:bg-gray-200 rounded text-gray-600"
+              title="Download"
+            >
+              <Download size={12} />
+            </a>
+          </div>
+        )}
+      </div>
+
+      {/* Recursive Children */}
+      {isDirectory && isOpen && item.children && (
+        <div className="pl-4 border-l border-gray-200 ml-2">
+          <FileTree items={item.children} onPreview={onPreview} projectId={projectId} />
+        </div>
+      )}
+    </li>
+  );
+};
+
 // --- Main Application ---
 
 export default function App() {
-  // State
   const [view, setView] = useState('home');
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null);
@@ -286,11 +387,8 @@ export default function App() {
   const [projectFiles, setProjectFiles] = useState({});
   const [activeTab, setActiveTab] = useState('design_outputs');
   const [isSyncing, setIsSyncing] = useState(false);
+  const [previewFile, setPreviewFile] = useState(null);
 
-  // Preview State
-  const [previewFile, setPreviewFile] = useState(null); // { name, url, content }
-
-  // API Call: Fetch Projects
   const fetchProjects = useCallback(async () => {
     try {
       setLoading(true);
@@ -305,7 +403,6 @@ export default function App() {
     }
   }, []);
 
-  // API Call: Add Project
   const handleAddProject = async () => {
     if (!newRepoUrl) return;
     setIsAdding(true);
@@ -325,7 +422,6 @@ export default function App() {
     }
   };
 
-  // API Call: Load Project Details
   const loadProjectDetails = async (project) => {
     setSelectedProject(project);
     setView('project');
@@ -340,7 +436,6 @@ export default function App() {
     }
   };
 
-  // API Call: Sync & Build
   const handleSyncAndBuild = async () => {
     if (!selectedProject) return;
     setIsSyncing(true);
@@ -359,7 +454,6 @@ export default function App() {
     }
   };
 
-  // Logic: Handle Preview Request
   const handlePreview = async (filePath) => {
     const url = `${API_BASE}/projects/${selectedProject.id}/file/${filePath}`;
     const lowerPath = filePath.toLowerCase();
@@ -390,7 +484,6 @@ export default function App() {
     { id: 'simulations', label: 'Simulations', icon: Activity },
   ];
 
-  // --- View: Project Detail ---
   if (view === 'project' && selectedProject) {
     return (
       <div className="min-h-screen bg-[#F4F4F4] text-black flex flex-col font-mono selection:bg-black selection:text-white">
@@ -419,11 +512,11 @@ export default function App() {
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
-              const count = projectFiles[tab.id]?.length || 0;
+              // Calculate total items recursively or just show '...' or fetch count from backend
+              // For now, simplistic count is removed or needs recursive calculation
               return (
                 <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center justify-between p-5 text-xs font-bold uppercase border-b border-gray-100 transition-all ${isActive ? 'bg-black text-white' : 'hover:bg-gray-100 text-black'}`}>
                   <div className="flex items-center gap-3"><Icon size={16} />{tab.label}</div>
-                  <span className={`px-2 py-0.5 text-[10px] border ${isActive ? 'bg-white text-black border-white' : 'bg-gray-100 border-gray-200'}`}>{count.toString().padStart(2, '0')}</span>
                 </button>
               );
             })}
@@ -439,47 +532,30 @@ export default function App() {
                     <p className="text-[10px] mt-2 max-w-xs text-center">Run "Sync & Build" to generate outputs if this is an output directory.</p>
                   </div>
                 ) : (
-                  <ul className="divide-y divide-gray-100">
-                    {projectFiles[activeTab].map((filePath, idx) => {
-                      const lower = filePath.toLowerCase();
-                      const isPreviewable = lower.endsWith('.pdf') || lower.endsWith('.csv') || lower.endsWith('.md');
-                      const downloadUrl = `${API_BASE}/projects/${selectedProject.id}/file/${filePath}`;
-                      return (
-                        <li key={idx} className="group flex items-center justify-between p-4 hover:bg-gray-50 transition-colors">
-                          <div className="flex items-center gap-4 overflow-hidden">
-                            <div className="w-8 h-8 flex items-center justify-center bg-gray-100 border border-gray-200 text-gray-500"><File size={14} /></div>
-                            <div className="flex flex-col"><span className="text-sm font-bold truncate">{filePath.split('/').pop()}</span><span className="text-[10px] text-gray-400 font-mono tracking-tight hidden sm:inline-block">{filePath}</span></div>
-                          </div>
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-                            {isPreviewable && (
-                              <Button onClick={() => handlePreview(filePath)} variant="secondary" className="!py-1.5 !px-3 !text-[10px]">
-                                <Eye size={12} className="mr-1" /> VIEW
-                              </Button>
-                            )}
-                            <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
-                              <Button variant="secondary" className="!py-1.5 !px-3 !text-[10px]">
-                                <Download size={12} className="mr-1" /> DL
-                              </Button>
-                            </a>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                  <div className="p-4">
+                    <FileTree
+                      items={projectFiles[activeTab]}
+                      onPreview={handlePreview}
+                      projectId={selectedProject.id}
+                    />
+                  </div>
                 )}
               </div>
             </div>
           </main>
         </div>
-
-        {/* Modals & Toasts */}
-        {previewFile && <PreviewModal file={previewFile} onClose={() => setPreviewFile(null)} />}
+        {previewFile && (
+          <PreviewModal
+            file={previewFile}
+            onClose={() => setPreviewFile(null)}
+            baseFileUrl={`${API_BASE}/projects/${selectedProject.id}/file`}
+          />
+        )}
         {toast && <Toast {...toast} onClose={() => setToast(null)} />}
       </div>
     );
   }
 
-  // --- View: Home / Gallery ---
   return (
     <div className="min-h-screen bg-[#F4F4F4] text-black font-mono selection:bg-black selection:text-white">
       <div className="border-b border-black bg-white">
